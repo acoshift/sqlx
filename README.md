@@ -1,6 +1,6 @@
 # sqlx
 
-[![Build Status](https://drone.io/github.com/jmoiron/sqlx/status.png)](https://drone.io/github.com/jmoiron/sqlx/latest) [![Godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/jmoiron/sqlx) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/jmoiron/sqlx/master/LICENSE)
+[![Build Status](https://drone.io/github.com/acoshift/sqlx/status.png)](https://drone.io/github.com/acoshift/sqlx/latest) [![Godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/acoshift/sqlx) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/acoshift/sqlx/master/LICENSE)
 
 sqlx is a library which provides a set of extensions on go's standard
 `database/sql` library.  The sqlx versions of `sql.DB`, `sql.TX`, `sql.Stmt`,
@@ -14,7 +14,7 @@ Major additional concepts are:
 * Named parameter support including prepared statements
 * `Get` and `Select` to go quickly from query to struct/slice
 
-In addition to the [godoc API documentation](http://godoc.org/github.com/jmoiron/sqlx),
+In addition to the [godoc API documentation](http://godoc.org/github.com/acoshift/sqlx),
 there is also some [standard documentation](http://jmoiron.github.io/sqlx/) that
 explains how to use `database/sql` along with sqlx.
 
@@ -31,16 +31,16 @@ active development currently.
 ### Backwards Compatibility
 
 There is no Go1-like promise of absolute stability, but I take the issue seriously
-and will maintain the library in a compatible state unless vital bugs prevent me 
-from doing so.  Since [#59](https://github.com/jmoiron/sqlx/issues/59) and 
-[#60](https://github.com/jmoiron/sqlx/issues/60) necessitated breaking behavior, 
+and will maintain the library in a compatible state unless vital bugs prevent me
+from doing so.  Since [#59](https://github.com/jmoiron/sqlx/issues/59) and
+[#60](https://github.com/jmoiron/sqlx/issues/60) necessitated breaking behavior,
 a wider API cleanup was done at the time of fixing.  It's possible this will happen
 in future;  if it does, a git tag will be provided for users requiring the old
 behavior to continue to use it until such a time as they can migrate.
 
 ## install
 
-    go get github.com/jmoiron/sqlx
+    go get github.com/acoshift/sqlx
 
 ## issues
 
@@ -52,13 +52,13 @@ SELECT a.id, a.name, b.id, b.name FROM foos AS a JOIN foos AS b ON a.parent = b.
 ```
 
 making a struct or map destination ambiguous.  Use `AS` in your queries
-to give columns distinct names, `rows.Scan` to scan them manually, or 
+to give columns distinct names, `rows.Scan` to scan them manually, or
 `SliceScan` to get a slice of results.
 
 ## usage
 
-Below is an example which shows some common use cases for sqlx.  Check 
-[sqlx_test.go](https://github.com/jmoiron/sqlx/blob/master/sqlx_test.go) for more
+Below is an example which shows some common use cases for sqlx.  Check
+[sqlx_test.go](https://github.com/acoshift/sqlx/blob/master/sqlx_test.go) for more
 usage.
 
 
@@ -69,9 +69,9 @@ import (
     "database/sql"
     "fmt"
     "log"
-    
+
     _ "github.com/lib/pq"
-    "github.com/jmoiron/sqlx"
+    "github.com/acoshift/sqlx"
 )
 
 var schema = `
@@ -110,7 +110,7 @@ func main() {
     // exec the schema or fail; multi-statement Exec behavior varies between
     // database drivers;  pq will exec them all, sqlite3 won't, ymmv
     db.MustExec(schema)
-    
+
     tx := db.MustBegin()
     tx.MustExec("INSERT INTO person (first_name, last_name, email) VALUES ($1, $2, $3)", "Jason", "Moiron", "jmoiron@jmoiron.net")
     tx.MustExec("INSERT INTO person (first_name, last_name, email) VALUES ($1, $2, $3)", "John", "Doe", "johndoeDNE@gmail.net")
@@ -144,7 +144,7 @@ func main() {
         return
     }
     usa, singsing, honkers := places[0], places[1], places[2]
-    
+
     fmt.Printf("%#v\n%#v\n%#v\n", usa, singsing, honkers)
     // Place{Country:"United States", City:sql.NullString{String:"New York", Valid:true}, TelCode:1}
     // Place{Country:"Singapore", City:sql.NullString{String:"", Valid:false}, TelCode:65}
@@ -157,7 +157,7 @@ func main() {
         err := rows.StructScan(&place)
         if err != nil {
             log.Fatalln(err)
-        } 
+        }
         fmt.Printf("%#v\n", place)
     }
     // Place{Country:"United States", City:sql.NullString{String:"New York", Valid:true}, TelCode:1}
@@ -166,7 +166,7 @@ func main() {
 
     // Named queries, using `:name` as the bindvar.  Automatic bindvar support
     // which takes into account the dbtype based on the driverName on sqlx.Open/Connect
-    _, err = db.NamedExec(`INSERT INTO person (first_name,last_name,email) VALUES (:first,:last,:email)`, 
+    _, err = db.NamedExec(`INSERT INTO person (first_name,last_name,email) VALUES (:first,:last,:email)`,
         map[string]interface{}{
             "first": "Bin",
             "last": "Smuth",
