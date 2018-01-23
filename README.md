@@ -1,6 +1,10 @@
 # sqlx
 
-[![Build Status](https://drone.io/github.com/acoshift/sqlx/status.png)](https://drone.io/github.com/acoshift/sqlx/latest) [![Godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/acoshift/sqlx) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/acoshift/sqlx/master/LICENSE)
+[![Build Status](https://travis-ci.org/acoshift/sqlx.svg?branch=master)](https://travis-ci.org/acoshift/sqlx)
+[![Coverage Status](https://coveralls.io/repos/github/acoshift/sqlx/badge.svg?branch=master)](https://coveralls.io/github/acoshift/sqlx?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/acoshift/sqlx)](https://goreportcard.com/report/github.com/acoshift/sqlx)
+[![GoDoc](https://godoc.org/github.com/acoshift/sqlx?status.svg)](https://godoc.org/github.com/acoshift/sqlx)
+[![Sourcegraph](https://sourcegraph.com/github.com/acoshift/sqlx/-/badge.svg)](https://sourcegraph.com/github.com/acoshift/sqlx?badge)
 
 sqlx is a library which provides a set of extensions on go's standard
 `database/sql` library.  The sqlx versions of `sql.DB`, `sql.TX`, `sql.Stmt`,
