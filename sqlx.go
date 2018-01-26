@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -630,30 +628,6 @@ func Select(q Queryer, dest interface{}, query string, args ...interface{}) erro
 func Get(q Queryer, dest interface{}, query string, args ...interface{}) error {
 	r := q.QueryRowx(query, args...)
 	return r.scanAny(dest, false)
-}
-
-// LoadFile exec's every statement in a file (as a single call to Exec).
-// LoadFile may return a nil *sql.Result if errors are encountered locating or
-// reading the file at path.  LoadFile reads the entire file into memory, so it
-// is not suitable for loading large data dumps, but can be useful for initializing
-// schemas or loading indexes.
-//
-// FIXME: this does not really work with multi-statement files for mattn/go-sqlite3
-// or the go-mysql-driver/mysql drivers;  pq seems to be an exception here.  Detecting
-// this by requiring something with DriverName() and then attempting to split the
-// queries will be difficult to get right, and its current driver-specific behavior
-// is deemed at least not complex in its incorrectness.
-func LoadFile(e Execer, path string) (*sql.Result, error) {
-	realpath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-	contents, err := ioutil.ReadFile(realpath)
-	if err != nil {
-		return nil, err
-	}
-	res, err := e.Exec(string(contents))
-	return &res, err
 }
 
 // MustExec execs the query using e and panics if there was an error.
