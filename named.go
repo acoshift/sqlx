@@ -128,8 +128,7 @@ type namedPreparer interface {
 }
 
 func prepareNamed(p namedPreparer, query string) (*NamedStmt, error) {
-	bindType := BindType(p.DriverName())
-	q, args, err := compileNamedQuery([]byte(query), bindType)
+	q, args, err := compileNamedQuery([]byte(query), DOLLAR)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +326,7 @@ func bindNamedMapper(bindType int, query string, arg interface{}, m *reflectx.Ma
 // provided Ext (sqlx.Tx, sqlx.Db).  It works with both structs and with
 // map[string]interface{} types.
 func NamedQuery(e Ext, query string, arg interface{}) (*Rows, error) {
-	q, args, err := bindNamedMapper(BindType(e.DriverName()), query, arg, mapperFor(e))
+	q, args, err := bindNamedMapper(DOLLAR, query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +337,7 @@ func NamedQuery(e Ext, query string, arg interface{}) (*Rows, error) {
 // then runs Exec on the result.  Returns an error from the binding
 // or the query excution itself.
 func NamedExec(e Ext, query string, arg interface{}) (sql.Result, error) {
-	q, args, err := bindNamedMapper(BindType(e.DriverName()), query, arg, mapperFor(e))
+	q, args, err := bindNamedMapper(DOLLAR, query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
 	}

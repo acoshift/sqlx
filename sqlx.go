@@ -92,7 +92,6 @@ type Execer interface {
 
 // Binder is an interface for something which can bind queries (Tx, DB)
 type binder interface {
-	DriverName() string
 	Rebind(string) string
 	BindNamed(string, interface{}) (string, []interface{}, error)
 }
@@ -237,38 +236,14 @@ func (r *Row) Err() error {
 // used mostly to automatically bind named queries using the right bindvars.
 type DB struct {
 	*sql.DB
-	driverName string
-	unsafe     bool
-	Mapper     *reflectx.Mapper
+	unsafe bool
+	Mapper *reflectx.Mapper
 }
 
 // NewDb returns a new sqlx DB wrapper for a pre-existing *sql.DB.  The
 // driverName of the original database is required for named query support.
-func NewDb(db *sql.DB, driverName string) *DB {
-	return &DB{DB: db, driverName: driverName, Mapper: mapper()}
-}
-
-// DriverName returns the driverName passed to the Open function for this DB.
-func (db *DB) DriverName() string {
-	return db.driverName
-}
-
-// Open is the same as sql.Open, but returns an *sqlx.DB instead.
-func Open(driverName, dataSourceName string) (*DB, error) {
-	db, err := sql.Open(driverName, dataSourceName)
-	if err != nil {
-		return nil, err
-	}
-	return &DB{DB: db, driverName: driverName, Mapper: mapper()}, err
-}
-
-// MustOpen is the same as sql.Open, but returns an *sqlx.DB instead and panics on error.
-func MustOpen(driverName, dataSourceName string) *DB {
-	db, err := Open(driverName, dataSourceName)
-	if err != nil {
-		panic(err)
-	}
-	return db
+func NewDb(db *sql.DB) *DB {
+	return &DB{DB: db, Mapper: mapper()}
 }
 
 // MapperFunc sets a new mapper for this db using the default sqlx struct tag
@@ -279,7 +254,7 @@ func (db *DB) MapperFunc(mf func(string) string) {
 
 // Rebind transforms a query from QUESTION to the DB driver's bindvar type.
 func (db *DB) Rebind(query string) string {
-	return Rebind(BindType(db.driverName), query)
+	return Rebind(DOLLAR, query)
 }
 
 // Unsafe returns a version of DB which will silently succeed to scan when
@@ -287,12 +262,12 @@ func (db *DB) Rebind(query string) string {
 // sqlx.Stmt and sqlx.Tx which are created from this DB will inherit its
 // safety behavior.
 func (db *DB) Unsafe() *DB {
-	return &DB{DB: db.DB, driverName: db.driverName, unsafe: true, Mapper: db.Mapper}
+	return &DB{DB: db.DB, unsafe: true, Mapper: db.Mapper}
 }
 
 // BindNamed binds a query using the DB driver's bindvar type.
 func (db *DB) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
-	return bindNamedMapper(BindType(db.driverName), query, arg, db.Mapper)
+	return bindNamedMapper(DOLLAR, query, arg, db.Mapper)
 }
 
 // NamedQuery using this DB.
@@ -336,7 +311,7 @@ func (db *DB) Beginx() (*Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Tx{Tx: tx, driverName: db.driverName, unsafe: db.unsafe, Mapper: db.Mapper}, err
+	return &Tx{Tx: tx, unsafe: db.unsafe, Mapper: db.Mapper}, err
 }
 
 // Queryx queries the database and returns an *sqlx.Rows.
@@ -387,7 +362,7 @@ func (tx *Tx) DriverName() string {
 
 // Rebind a query within a transaction's bindvar type.
 func (tx *Tx) Rebind(query string) string {
-	return Rebind(BindType(tx.driverName), query)
+	return Rebind(DOLLAR, query)
 }
 
 // Unsafe returns a version of Tx which will silently succeed to scan when
@@ -398,7 +373,7 @@ func (tx *Tx) Unsafe() *Tx {
 
 // BindNamed binds a query within a transaction's bindvar type.
 func (tx *Tx) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
-	return bindNamedMapper(BindType(tx.driverName), query, arg, tx.Mapper)
+	return bindNamedMapper(DOLLAR, query, arg, tx.Mapper)
 }
 
 // NamedQuery within a transaction.
@@ -621,29 +596,6 @@ func (r *Rows) StructScan(dest interface{}) error {
 		return err
 	}
 	return r.Err()
-}
-
-// Connect to a database and verify with a ping.
-func Connect(driverName, dataSourceName string) (*DB, error) {
-	db, err := Open(driverName, dataSourceName)
-	if err != nil {
-		return nil, err
-	}
-	err = db.Ping()
-	if err != nil {
-		db.Close()
-		return nil, err
-	}
-	return db, nil
-}
-
-// MustConnect connects to a database and panics on error.
-func MustConnect(driverName, dataSourceName string) *DB {
-	db, err := Connect(driverName, dataSourceName)
-	if err != nil {
-		panic(err)
-	}
-	return db
 }
 
 // Preparex prepares a statement.

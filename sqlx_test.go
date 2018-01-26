@@ -16,16 +16,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/acoshift/sqlx/reflectx"
-	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 /* compile time checks that Db, Tx, Stmt (qStmt) implement expected interfaces */
@@ -34,63 +31,17 @@ var _, _ ColScanner = &Row{}, &Rows{}
 var _ Queryer = &qStmt{}
 var _ Execer = &qStmt{}
 
-var TestPostgres = true
-var TestSqlite = true
-var TestMysql = true
-
 var sldb *DB
 var pgdb *DB
 var mysqldb *DB
 var active = []*DB{}
 
 func init() {
-	ConnectAll()
-}
-
-func ConnectAll() {
-	var err error
-
-	pgdsn := os.Getenv("SQLX_POSTGRES_DSN")
-	mydsn := os.Getenv("SQLX_MYSQL_DSN")
-	sqdsn := os.Getenv("SQLX_SQLITE_DSN")
-
-	TestPostgres = pgdsn != "skip"
-	TestMysql = mydsn != "skip"
-	TestSqlite = sqdsn != "skip"
-
-	if !strings.Contains(mydsn, "parseTime=true") {
-		mydsn += "?parseTime=true"
+	db, err := sql.Open("postgres", "postgres://postgres@localhost/postgres?sslmode=disable")
+	if err != nil {
+		panic(err)
 	}
-
-	if TestPostgres {
-		pgdb, err = Connect("postgres", pgdsn)
-		if err != nil {
-			fmt.Printf("Disabling PG tests:\n    %v\n", err)
-			TestPostgres = false
-		}
-	} else {
-		fmt.Println("Disabling Postgres tests.")
-	}
-
-	if TestMysql {
-		mysqldb, err = Connect("mysql", mydsn)
-		if err != nil {
-			fmt.Printf("Disabling MySQL tests:\n    %v", err)
-			TestMysql = false
-		}
-	} else {
-		fmt.Println("Disabling MySQL tests.")
-	}
-
-	if TestSqlite {
-		sldb, err = Connect("sqlite3", sqdsn)
-		if err != nil {
-			fmt.Printf("Disabling SQLite:\n    %v", err)
-			TestSqlite = false
-		}
-	} else {
-		fmt.Println("Disabling SQLite tests.")
-	}
+	pgdb = NewDb(db)
 }
 
 type Schema struct {
@@ -100,14 +51,6 @@ type Schema struct {
 
 func (s Schema) Postgres() (string, string) {
 	return s.create, s.drop
-}
-
-func (s Schema) MySQL() (string, string) {
-	return strings.Replace(s.create, `"`, "`", -1), s.drop
-}
-
-func (s Schema) Sqlite3() (string, string) {
-	return strings.Replace(s.create, `now()`, `CURRENT_TIMESTAMP`, -1), s.drop
 }
 
 var defaultSchema = Schema{
@@ -228,18 +171,8 @@ func RunWithSchema(schema Schema, t *testing.T, test func(db *DB, t *testing.T))
 		test(db, t)
 	}
 
-	if TestPostgres {
-		create, drop := schema.Postgres()
-		runner(pgdb, t, create, drop)
-	}
-	if TestSqlite {
-		create, drop := schema.Sqlite3()
-		runner(sldb, t, create, drop)
-	}
-	if TestMysql {
-		create, drop := schema.MySQL()
-		runner(mysqldb, t, create, drop)
-	}
+	create, drop := schema.Postgres()
+	runner(pgdb, t, create, drop)
 }
 
 func loadDefaultFixture(db *DB, t *testing.T) {
@@ -249,11 +182,7 @@ func loadDefaultFixture(db *DB, t *testing.T) {
 	tx.MustExec(tx.Rebind("INSERT INTO place (country, city, telcode) VALUES (?, ?, ?)"), "United States", "New York", "1")
 	tx.MustExec(tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Hong Kong", "852")
 	tx.MustExec(tx.Rebind("INSERT INTO place (country, telcode) VALUES (?, ?)"), "Singapore", "65")
-	if db.DriverName() == "mysql" {
-		tx.MustExec(tx.Rebind("INSERT INTO capplace (`COUNTRY`, `TELCODE`) VALUES (?, ?)"), "Sarf Efrica", "27")
-	} else {
-		tx.MustExec(tx.Rebind("INSERT INTO capplace (\"COUNTRY\", \"TELCODE\") VALUES (?, ?)"), "Sarf Efrica", "27")
-	}
+	tx.MustExec(tx.Rebind("INSERT INTO capplace (\"COUNTRY\", \"TELCODE\") VALUES (?, ?)"), "Sarf Efrica", "27")
 	tx.MustExec(tx.Rebind("INSERT INTO employees (name, id) VALUES (?, ?)"), "Peter", "4444")
 	tx.MustExec(tx.Rebind("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)"), "Joe", "1", "4444")
 	tx.MustExec(tx.Rebind("INSERT INTO employees (name, id, boss_id) VALUES (?, ?, ?)"), "Martin", "2", "4444")
@@ -675,20 +604,10 @@ func TestNamedQuery(t *testing.T) {
 
 		db.Mapper = reflectx.NewMapperFunc("json", strings.ToUpper)
 
-		// prepare queries for case sensitivity to test our ToUpper function.
-		// postgres and sqlite accept "", but mysql uses ``;  since Go's multi-line
-		// strings are `` we use "" by default and swap out for MySQL
-		pdb := func(s string, db *DB) string {
-			if db.DriverName() == "mysql" {
-				return strings.Replace(s, `"`, "`", -1)
-			}
-			return s
-		}
-
 		q1 = `INSERT INTO jsperson ("FIRST", last_name, "EMAIL") VALUES (:FIRST, :last_name, :EMAIL)`
-		_, err = db.NamedExec(pdb(q1, db), jp)
+		_, err = db.NamedExec(q1, jp)
 		if err != nil {
-			t.Fatal(err, db.DriverName())
+			t.Fatal(err)
 		}
 
 		// Checks that a person pulled out of the db matches the one we put in
@@ -700,24 +619,24 @@ func TestNamedQuery(t *testing.T) {
 					t.Error(err)
 				}
 				if jp.FirstName.String != "ben" {
-					t.Errorf("Expected first name of `ben`, got `%s` (%s) ", jp.FirstName.String, db.DriverName())
+					t.Errorf("Expected first name of `ben`, got `%s` ", jp.FirstName.String)
 				}
 				if jp.LastName.String != "smith" {
-					t.Errorf("Expected LastName of `smith`, got `%s` (%s)", jp.LastName.String, db.DriverName())
+					t.Errorf("Expected LastName of `smith`, got `%s`", jp.LastName.String)
 				}
 				if jp.Email.String != "ben@smith.com" {
-					t.Errorf("Expected first name of `doe`, got `%s` (%s)", jp.Email.String, db.DriverName())
+					t.Errorf("Expected first name of `doe`, got `%s`", jp.Email.String)
 				}
 			}
 		}
 
-		ns, err := db.PrepareNamed(pdb(`
+		ns, err := db.PrepareNamed(`
 			SELECT * FROM jsperson
 			WHERE
 				"FIRST"=:FIRST AND
 				last_name=:last_name AND
 				"EMAIL"=:EMAIL
-		`, db))
+		`)
 
 		if err != nil {
 			t.Fatal(err)
@@ -731,13 +650,13 @@ func TestNamedQuery(t *testing.T) {
 
 		// Check exactly the same thing, but with db.NamedQuery, which does not go
 		// through the PrepareNamed/NamedStmt path.
-		rows, err = db.NamedQuery(pdb(`
+		rows, err = db.NamedQuery(`
 			SELECT * FROM jsperson
 			WHERE
 				"FIRST"=:FIRST AND
 				last_name=:last_name AND
 				"EMAIL"=:EMAIL
-		`, db), jp)
+		`, jp)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -892,7 +811,7 @@ func TestScanError(t *testing.T) {
 			var wt WrongTypes
 			err := rows.StructScan(&wt)
 			if err == nil {
-				t.Errorf("%s: Scanning wrong types into keys should have errored.", db.DriverName())
+				t.Errorf("Scanning wrong types into keys should have errored.")
 			}
 		}
 	})
@@ -1200,17 +1119,16 @@ func TestUsage(t *testing.T) {
 		rsa := CPlace{}
 		err = db.Get(&rsa, "SELECT * FROM capplace;")
 		if err != nil {
-			t.Error(err, "in db:", db.DriverName())
+			t.Error(err)
 		}
 		db.MapperFunc(strings.ToLower)
 
 		// create a copy and change the mapper, then verify the copy behaves
 		// differently from the original.
-		dbCopy := NewDb(db.DB, db.DriverName())
+		dbCopy := NewDb(db.DB)
 		dbCopy.MapperFunc(strings.ToUpper)
 		err = dbCopy.Get(&rsa, "SELECT * FROM capplace;")
 		if err != nil {
-			fmt.Println(db.DriverName())
 			t.Error(err)
 		}
 
@@ -1291,18 +1209,6 @@ func TestUsage(t *testing.T) {
 
 type Product struct {
 	ProductID int
-}
-
-// tests that sqlx will not panic when the wrong driver is passed because
-// of an automatic nil dereference in sqlx.Open(), which was fixed.
-func TestDoNotPanicOnConnect(t *testing.T) {
-	db, err := Connect("bogus", "hehe")
-	if err == nil {
-		t.Errorf("Should return error when using bogus driverName")
-	}
-	if db != nil {
-		t.Errorf("Should not return the db on a connect failure")
-	}
 }
 
 func TestRebind(t *testing.T) {
@@ -1387,8 +1293,11 @@ func (p PropertyMap) Value() (driver.Value, error) {
 
 func (p PropertyMap) Scan(src interface{}) error {
 	v := reflect.ValueOf(src)
-	if !v.IsValid() || v.IsNil() {
+	if !v.IsValid() {
 		return nil
+	}
+	if data, ok := src.(string); ok {
+		src = []byte(data)
 	}
 	if data, ok := src.([]byte); ok {
 		return json.Unmarshal(data, &p)

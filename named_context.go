@@ -15,8 +15,7 @@ type namedPreparerContext interface {
 }
 
 func prepareNamedContext(ctx context.Context, p namedPreparerContext, query string) (*NamedStmt, error) {
-	bindType := BindType(p.DriverName())
-	q, args, err := compileNamedQuery([]byte(query), bindType)
+	q, args, err := compileNamedQuery([]byte(query), DOLLAR)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +112,7 @@ func (n *NamedStmt) GetContext(ctx context.Context, dest interface{}, arg interf
 // provided Ext (sqlx.Tx, sqlx.Db).  It works with both structs and with
 // map[string]interface{} types.
 func NamedQueryContext(ctx context.Context, e ExtContext, query string, arg interface{}) (*Rows, error) {
-	q, args, err := bindNamedMapper(BindType(e.DriverName()), query, arg, mapperFor(e))
+	q, args, err := bindNamedMapper(DOLLAR, query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +123,7 @@ func NamedQueryContext(ctx context.Context, e ExtContext, query string, arg inte
 // then runs Exec on the result.  Returns an error from the binding
 // or the query excution itself.
 func NamedExecContext(ctx context.Context, e ExtContext, query string, arg interface{}) (sql.Result, error) {
-	q, args, err := bindNamedMapper(BindType(e.DriverName()), query, arg, mapperFor(e))
+	q, args, err := bindNamedMapper(DOLLAR, query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
 	}

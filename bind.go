@@ -18,21 +18,6 @@ const (
 	NAMED
 )
 
-// BindType returns the bindtype for a given database given a drivername.
-func BindType(driverName string) int {
-	switch driverName {
-	case "postgres", "pgx":
-		return DOLLAR
-	case "mysql":
-		return QUESTION
-	case "sqlite3":
-		return QUESTION
-	case "oci8", "ora", "goracle":
-		return NAMED
-	}
-	return UNKNOWN
-}
-
 // FIXME: this should be able to be tolerant of escaped ?'s in queries without
 // losing much speed, and should be to avoid confusion.
 
