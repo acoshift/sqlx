@@ -254,7 +254,7 @@ func (db *DB) MapperFunc(mf func(string) string) {
 
 // Rebind transforms a query from QUESTION to the DB driver's bindvar type.
 func (db *DB) Rebind(query string) string {
-	return Rebind(DOLLAR, query)
+	return Rebind(query)
 }
 
 // Unsafe returns a version of DB which will silently succeed to scan when
@@ -267,7 +267,7 @@ func (db *DB) Unsafe() *DB {
 
 // BindNamed binds a query using the DB driver's bindvar type.
 func (db *DB) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
-	return bindNamedMapper(DOLLAR, query, arg, db.Mapper)
+	return bindNamedMapper(query, arg, db.Mapper)
 }
 
 // NamedQuery using this DB.
@@ -362,7 +362,7 @@ func (tx *Tx) DriverName() string {
 
 // Rebind a query within a transaction's bindvar type.
 func (tx *Tx) Rebind(query string) string {
-	return Rebind(DOLLAR, query)
+	return Rebind(query)
 }
 
 // Unsafe returns a version of Tx which will silently succeed to scan when
@@ -373,7 +373,7 @@ func (tx *Tx) Unsafe() *Tx {
 
 // BindNamed binds a query within a transaction's bindvar type.
 func (tx *Tx) BindNamed(query string, arg interface{}) (string, []interface{}, error) {
-	return bindNamedMapper(DOLLAR, query, arg, tx.Mapper)
+	return bindNamedMapper(query, arg, tx.Mapper)
 }
 
 // NamedQuery within a transaction.

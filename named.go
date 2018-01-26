@@ -128,7 +128,7 @@ type namedPreparer interface {
 }
 
 func prepareNamed(p namedPreparer, query string) (*NamedStmt, error) {
-	q, args, err := compileNamedQuery([]byte(query), DOLLAR)
+	q, args, err := compileNamedQuery([]byte(query))
 	if err != nil {
 		return nil, err
 	}
@@ -193,8 +193,8 @@ func bindMapArgs(names []string, arg map[string]interface{}) ([]interface{}, err
 // bindStruct binds a named parameter query with fields from a struct argument.
 // The rules for binding field names to parameter names follow the same
 // conventions as for StructScan, including obeying the `db` struct tags.
-func bindStruct(bindType int, query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
-	bound, names, err := compileNamedQuery([]byte(query), bindType)
+func bindStruct(query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
+	bound, names, err := compileNamedQuery([]byte(query))
 	if err != nil {
 		return "", []interface{}{}, err
 	}
@@ -208,8 +208,8 @@ func bindStruct(bindType int, query string, arg interface{}, m *reflectx.Mapper)
 }
 
 // bindMap binds a named parameter query with a map of arguments.
-func bindMap(bindType int, query string, args map[string]interface{}) (string, []interface{}, error) {
-	bound, names, err := compileNamedQuery([]byte(query), bindType)
+func bindMap(query string, args map[string]interface{}) (string, []interface{}, error) {
+	bound, names, err := compileNamedQuery([]byte(query))
 	if err != nil {
 		return "", []interface{}{}, err
 	}
@@ -235,7 +235,7 @@ var allowedBindRunes = []*unicode.RangeTable{unicode.Letter, unicode.Digit}
 
 // compile a NamedQuery into an unbound query (using the '?' bindvar) and
 // a list of names.
-func compileNamedQuery(qs []byte, bindType int) (query string, names []string, err error) {
+func compileNamedQuery(qs []byte) (query string, names []string, err error) {
 	names = make([]string, 0, 10)
 	rebound := make([]byte, 0, len(qs))
 
@@ -272,21 +272,12 @@ func compileNamedQuery(qs []byte, bindType int) (query string, names []string, e
 			}
 			// add the string representation to the names list
 			names = append(names, string(name))
-			// add a proper bindvar for the bindType
-			switch bindType {
-			// oracle only supports named type bind vars even for positional
-			case NAMED:
-				rebound = append(rebound, ':')
-				rebound = append(rebound, name...)
-			case QUESTION, UNKNOWN:
-				rebound = append(rebound, '?')
-			case DOLLAR:
-				rebound = append(rebound, '$')
-				for _, b := range strconv.Itoa(currentVar) {
-					rebound = append(rebound, byte(b))
-				}
-				currentVar++
+
+			rebound = append(rebound, '$')
+			for _, b := range strconv.Itoa(currentVar) {
+				rebound = append(rebound, byte(b))
 			}
+			currentVar++
 			// add this byte to string unless it was not part of the name
 			if i != last {
 				rebound = append(rebound, b)
@@ -304,29 +295,30 @@ func compileNamedQuery(qs []byte, bindType int) (query string, names []string, e
 
 // BindNamed binds a struct or a map to a query with named parameters.
 // DEPRECATED: use sqlx.Named` instead of this, it may be removed in future.
-func BindNamed(bindType int, query string, arg interface{}) (string, []interface{}, error) {
-	return bindNamedMapper(bindType, query, arg, mapper())
+func BindNamed(query string, arg interface{}) (string, []interface{}, error) {
+	return bindNamedMapper(query, arg, mapper())
 }
 
 // Named takes a query using named parameters and an argument and
 // returns a new query with a list of args that can be executed by
 // a database.  The return value uses the `?` bindvar.
 func Named(query string, arg interface{}) (string, []interface{}, error) {
-	return bindNamedMapper(QUESTION, query, arg, mapper())
+	// return bindNamedMapper(QUESTION, query, arg, mapper())
+	return bindNamedMapper(query, arg, mapper())
 }
 
-func bindNamedMapper(bindType int, query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
+func bindNamedMapper(query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
 	if maparg, ok := arg.(map[string]interface{}); ok {
-		return bindMap(bindType, query, maparg)
+		return bindMap(query, maparg)
 	}
-	return bindStruct(bindType, query, arg, m)
+	return bindStruct(query, arg, m)
 }
 
 // NamedQuery binds a named query and then runs Query on the result using the
 // provided Ext (sqlx.Tx, sqlx.Db).  It works with both structs and with
 // map[string]interface{} types.
 func NamedQuery(e Ext, query string, arg interface{}) (*Rows, error) {
-	q, args, err := bindNamedMapper(DOLLAR, query, arg, mapperFor(e))
+	q, args, err := bindNamedMapper(query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +329,7 @@ func NamedQuery(e Ext, query string, arg interface{}) (*Rows, error) {
 // then runs Exec on the result.  Returns an error from the binding
 // or the query excution itself.
 func NamedExec(e Ext, query string, arg interface{}) (sql.Result, error) {
-	q, args, err := bindNamedMapper(DOLLAR, query, arg, mapperFor(e))
+	q, args, err := bindNamedMapper(query, arg, mapperFor(e))
 	if err != nil {
 		return nil, err
 	}

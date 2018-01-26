@@ -53,30 +53,9 @@ func TestCompileQuery(t *testing.T) {
 	}
 
 	for _, test := range table {
-		qr, names, err := compileNamedQuery([]byte(test.Q), QUESTION)
-		if err != nil {
-			t.Error(err)
-		}
-		if qr != test.R {
-			t.Errorf("expected %s, got %s", test.R, qr)
-		}
-		if len(names) != len(test.V) {
-			t.Errorf("expected %#v, got %#v", test.V, names)
-		} else {
-			for i, name := range names {
-				if name != test.V[i] {
-					t.Errorf("expected %dth name to be %s, got %s", i+1, test.V[i], name)
-				}
-			}
-		}
-		qd, _, _ := compileNamedQuery([]byte(test.Q), DOLLAR)
+		qd, _, _ := compileNamedQuery([]byte(test.Q))
 		if qd != test.D {
 			t.Errorf("\nexpected: `%s`\ngot:      `%s`", test.D, qd)
-		}
-
-		qq, _, _ := compileNamedQuery([]byte(test.Q), NAMED)
-		if qq != test.N {
-			t.Errorf("\nexpected: `%s`\ngot:      `%s`\n(len: %d vs %d)", test.N, qq, len(test.N), len(qq))
 		}
 	}
 }
@@ -126,7 +105,7 @@ func TestNamedQueries(t *testing.T) {
 		test.Error(err)
 
 		ns, err = db.PrepareNamed(`
-			SELECT first_name, last_name, email 
+			SELECT first_name, last_name, email
 			FROM person WHERE first_name=:first_name AND email=:email`)
 		test.Error(err)
 

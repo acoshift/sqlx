@@ -1215,8 +1215,8 @@ func TestRebind(t *testing.T) {
 	q1 := `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	q2 := `INSERT INTO foo (a, b, c) VALUES (?, ?, "foo"), ("Hi", ?, ?)`
 
-	s1 := Rebind(DOLLAR, q1)
-	s2 := Rebind(DOLLAR, q2)
+	s1 := Rebind(q1)
+	s2 := Rebind(q2)
 
 	if s1 != `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)` {
 		t.Errorf("q1 failed")
@@ -1224,20 +1224,6 @@ func TestRebind(t *testing.T) {
 
 	if s2 != `INSERT INTO foo (a, b, c) VALUES ($1, $2, "foo"), ("Hi", $3, $4)` {
 		t.Errorf("q2 failed")
-	}
-
-	s1 = Rebind(NAMED, q1)
-	s2 = Rebind(NAMED, q2)
-
-	ex1 := `INSERT INTO foo (a, b, c, d, e, f, g, h, i) VALUES ` +
-		`(:arg1, :arg2, :arg3, :arg4, :arg5, :arg6, :arg7, :arg8, :arg9, :arg10)`
-	if s1 != ex1 {
-		t.Error("q1 failed on Named params")
-	}
-
-	ex2 := `INSERT INTO foo (a, b, c) VALUES (:arg1, :arg2, "foo"), ("Hi", :arg3, :arg4)`
-	if s2 != ex2 {
-		t.Error("q2 failed on Named params")
 	}
 }
 
@@ -1251,8 +1237,8 @@ func TestBindMap(t *testing.T) {
 		"last":  "Moiron",
 	}
 
-	bq, args, _ := bindMap(QUESTION, q1, am)
-	expect := `INSERT INTO foo (a, b, c, d) VALUES (?, ?, ?, ?)`
+	bq, args, _ := bindMap(q1, am)
+	expect := `INSERT INTO foo (a, b, c, d) VALUES ($1, $2, $3, $4)`
 	if bq != expect {
 		t.Errorf("Interpolation of query failed: got `%v`, expected `%v`\n", bq, expect)
 	}
@@ -1506,8 +1492,8 @@ func TestBindStruct(t *testing.T) {
 
 	am := tt{"Jason Moiron", 30, "Jason", "Moiron"}
 
-	bq, args, _ := bindStruct(QUESTION, q1, am, mapper())
-	expect := `INSERT INTO foo (a, b, c, d) VALUES (?, ?, ?, ?)`
+	bq, args, _ := bindStruct(q1, am, mapper())
+	expect := `INSERT INTO foo (a, b, c, d) VALUES ($1, $2, $3, $4)`
 	if bq != expect {
 		t.Errorf("Interpolation of query failed: got `%v`, expected `%v`\n", bq, expect)
 	}
@@ -1529,8 +1515,8 @@ func TestBindStruct(t *testing.T) {
 	}
 
 	am2 := tt2{"Hello", "World"}
-	bq, args, _ = bindStruct(QUESTION, "INSERT INTO foo (a, b) VALUES (:field_2, :field_1)", am2, mapper())
-	expect = `INSERT INTO foo (a, b) VALUES (?, ?)`
+	bq, args, _ = bindStruct("INSERT INTO foo (a, b) VALUES (:field_2, :field_1)", am2, mapper())
+	expect = `INSERT INTO foo (a, b) VALUES ($1, $2)`
 	if bq != expect {
 		t.Errorf("Interpolation of query failed: got `%v`, expected `%v`\n", bq, expect)
 	}
@@ -1546,13 +1532,13 @@ func TestBindStruct(t *testing.T) {
 	am3.Field1 = "Hello"
 	am3.Field2 = "World"
 
-	bq, args, err = bindStruct(QUESTION, "INSERT INTO foo (a, b, c) VALUES (:name, :field_1, :field_2)", am3, mapper())
+	bq, args, err = bindStruct("INSERT INTO foo (a, b, c) VALUES (:name, :field_1, :field_2)", am3, mapper())
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	expect = `INSERT INTO foo (a, b, c) VALUES (?, ?, ?)`
+	expect = `INSERT INTO foo (a, b, c) VALUES ($1, $2, $3)`
 	if bq != expect {
 		t.Errorf("Interpolation of query failed: got `%v`, expected `%v`\n", bq, expect)
 	}
@@ -1622,7 +1608,7 @@ func BenchmarkBindStruct(b *testing.B) {
 	am := t{"Jason Moiron", 30, "Jason", "Moiron"}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		bindStruct(DOLLAR, q1, am, mapper())
+		bindStruct(q1, am, mapper())
 	}
 }
 
@@ -1637,7 +1623,7 @@ func BenchmarkBindMap(b *testing.B) {
 	}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		bindMap(DOLLAR, q1, am)
+		bindMap(q1, am)
 	}
 }
 
@@ -1686,8 +1672,8 @@ func BenchmarkRebind(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		Rebind(DOLLAR, q1)
-		Rebind(DOLLAR, q2)
+		Rebind(q1)
+		Rebind(q2)
 	}
 }
 
@@ -1698,7 +1684,7 @@ func BenchmarkRebindBuffer(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		rebindBuff(DOLLAR, q1)
-		rebindBuff(DOLLAR, q2)
+		rebindBuff(q1)
+		rebindBuff(q2)
 	}
 }

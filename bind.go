@@ -10,24 +10,11 @@ import (
 	"github.com/acoshift/sqlx/reflectx"
 )
 
-// Bindvar types supported by Rebind, BindMap and BindStruct.
-const (
-	UNKNOWN = iota
-	QUESTION
-	DOLLAR
-	NAMED
-)
-
 // FIXME: this should be able to be tolerant of escaped ?'s in queries without
 // losing much speed, and should be to avoid confusion.
 
 // Rebind a query from the default bindtype (QUESTION) to the target bindtype.
-func Rebind(bindType int, query string) string {
-	switch bindType {
-	case QUESTION, UNKNOWN:
-		return query
-	}
-
+func Rebind(query string) string {
 	// Add space enough for 10 params before we have to allocate
 	rqb := make([]byte, 0, len(query)+10)
 
@@ -35,13 +22,7 @@ func Rebind(bindType int, query string) string {
 
 	for i = strings.Index(query, "?"); i != -1; i = strings.Index(query, "?") {
 		rqb = append(rqb, query[:i]...)
-
-		switch bindType {
-		case DOLLAR:
-			rqb = append(rqb, '$')
-		case NAMED:
-			rqb = append(rqb, ':', 'a', 'r', 'g')
-		}
+		rqb = append(rqb, '$')
 
 		j++
 		rqb = strconv.AppendInt(rqb, int64(j), 10)
@@ -56,11 +37,7 @@ func Rebind(bindType int, query string) string {
 // much simpler and should be more resistant to odd unicode, but it is twice as
 // slow.  Kept here for benchmarking purposes and to possibly replace Rebind if
 // problems arise with its somewhat naive handling of unicode.
-func rebindBuff(bindType int, query string) string {
-	if bindType != DOLLAR {
-		return query
-	}
-
+func rebindBuff(query string) string {
 	b := make([]byte, 0, len(query))
 	rqb := bytes.NewBuffer(b)
 	j := 1
